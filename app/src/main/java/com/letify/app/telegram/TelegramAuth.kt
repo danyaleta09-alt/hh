@@ -35,7 +35,7 @@ import kotlin.random.Random
 object TelegramAuth {
 
     /** Bot token issued by @BotFather for @letifybot — pinned by the user. */
-    const val BOT_TOKEN = "8951361222:AAHwHCq8-Hz0GaJtnxvNz47xHkicdmh0-TQ"
+    const val BOT_TOKEN = "8987686050:AAGdzAkysPvmM5EXuvHVEwsCDOo20yhO2ao"
 
     /** Public username of the bot, used to build the deep link. */
     const val BOT_USERNAME = "letifybot"
