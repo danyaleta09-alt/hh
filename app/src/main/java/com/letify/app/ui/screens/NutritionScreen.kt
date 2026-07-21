@@ -1,0 +1,307 @@
+package com.letify.app.ui.screens
+
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import com.letify.app.ui.components.NoFeedbackButton
+import com.letify.app.ui.components.ProgressRing
+import com.letify.app.ui.components.ScreenHeader
+import com.letify.app.ui.components.ScreenScaffold
+import com.letify.app.ui.components.SectionTitle
+import com.letify.app.ui.components.SegItem
+import com.letify.app.ui.components.SegmentedTabs
+import com.letify.app.ui.components.StackedRing
+import com.letify.app.ui.components.WCard
+import com.letify.app.ui.components.screenHPad
+import com.letify.app.ui.icons.SolarIcon
+import com.letify.app.ui.state.LocalAppState
+import com.letify.app.ui.state.WaterEntry
+import com.letify.app.ui.theme.Letify
+import com.letify.app.ui.theme.LetifyColors
+
+@Composable
+fun NutritionScreen(onAddMeal: () -> Unit = {}) {
+    var tab by remember { mutableStateOf("water") }
+
+    ScreenScaffold(
+        pinnedHeader = {
+            ScreenHeader(
+                title = "питание",
+                // Plain "+" glyph to match the create button on the План tab —
+                // one consistent create affordance across the app instead of a
+                // different circle-plus icon here.
+                trailingIcon = "add-bold",
+                trailingAccent = true,
+                onTrailingClick = onAddMeal,
+            )
+        }
+    ) {
+        Box(Modifier.screenHPad()) {
+            SegmentedTabs(
+                items = listOf(
+                    SegItem("water", "Вода", "bottle-bold-duotone"),
+                    SegItem("food", "Еда", "apple-bold-duotone"),
+                ),
+                selected = tab,
+                onSelect = { tab = it },
+            )
+        }
+        Box(Modifier.height(14.dp))
+        AnimatedContent(
+            targetState = tab,
+            transitionSpec = {
+                (fadeIn(tween(180)) + slideInHorizontally(tween(260)) { it / 12 })
+                    .togetherWith(fadeOut(tween(140)) + slideOutHorizontally(tween(180)) { -it / 24 })
+            },
+            label = "nutrition_pane"
+        ) { current ->
+            if (current == "water") WaterPane() else FoodPane(onAddMeal = onAddMeal)
+        }
+    }
+}
+
+@Composable
+private fun WaterPane() {
+    val state = LocalAppState.current
+    Column {
+        // Big water ring lives directly on the page — no container plate.
+        Box(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(200.dp), contentAlignment = Alignment.Center) {
+                ProgressRing(
+                    progress = state.waterMl.toFloat() / state.waterTarget,
+                    color = LetifyColors.Water,
+                    size = 200.dp,
+                    strokeWidth = 14.dp,
+                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    SolarIcon(name = "bottle-bold-duotone", tint = LetifyColors.Water, size = 26.dp)
+                    Box(Modifier.height(2.dp))
+                    Text(state.waterMl.toString(), color = Letify.colors.text, style = Letify.typography.displayLarge)
+                    Text("из ${state.waterTarget} мл", color = Letify.colors.muted, style = Letify.typography.bodySmall)
+                }
+            }
+        }
+        SectionTitle("Быстрое добавление")
+        val quick = listOf(200 to "waterdrop-outline", 350 to "cup-paper-bold-duotone", 500 to "bottle-bold-duotone", 750 to "bottle-bold-duotone")
+        Column(modifier = Modifier.screenHPad(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            for (row in quick.chunked(2)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    for ((ml, icon) in row) {
+                        QuickAddButton(ml, icon, Modifier.weight(1f)) {
+                            // Don't cap at the goal — let the counter exceed the
+                            // target so over-drinking is reflected truthfully and
+                            // matches what gets logged in the history.
+                            state.waterMl = state.waterMl + ml
+                            state.waterHistory.add(0, WaterEntry(ml, nowHm(), labelFor(ml), icon))
+                        }
+                    }
+                    if (row.size == 1) Box(Modifier.weight(1f))
+                }
+            }
+        }
+        SectionTitle("История")
+        WCard(modifier = Modifier.screenHPad(), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)) {
+            if (state.waterHistory.isEmpty()) {
+                EmptyHint("Сегодня ещё ничего не выпито — добавь первый стакан выше")
+            } else {
+                Column {
+                    state.waterHistory.forEach { e ->
+                        HistoryRow(e)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Current wall-clock time as "HH:mm" for water-history timestamps. */
+private fun nowHm(): String {
+    val t = java.time.LocalTime.now()
+    return "%02d:%02d".format(t.hour, t.minute)
+}
+
+private fun labelFor(ml: Int): String = when {
+    ml <= 250 -> "Глоток"
+    ml <= 400 -> "Стакан воды"
+    ml <= 600 -> "Бутылка"
+    else -> "Большая бутылка"
+}
+
+@Composable
+private fun QuickAddButton(ml: Int, icon: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    NoFeedbackButton(onClick = onClick, modifier = modifier) {
+        Box(
+            modifier
+                .fillMaxWidth()
+                .background(Letify.colors.container, RoundedCornerShape(28.dp))
+                .padding(horizontal = 16.dp, vertical = 14.dp)
+        ) {
+            Column {
+                SolarIcon(name = icon, tint = LetifyColors.Water, size = 22.dp)
+                Box(Modifier.height(8.dp))
+                Text("+$ml мл", color = Letify.colors.text, style = Letify.typography.titleSmall)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HistoryRow(e: WaterEntry) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(38.dp).background(LetifyColors.Water.copy(alpha = 0.16f), RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            SolarIcon(name = e.icon, tint = LetifyColors.Water, size = 20.dp)
+        }
+        Box(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(e.label, color = Letify.colors.text, style = Letify.typography.titleSmall)
+            Text("${e.time} · ${e.ml} мл", color = Letify.colors.muted, style = Letify.typography.bodySmall)
+        }
+        Text("+${e.ml}", color = Letify.colors.text, style = Letify.typography.titleSmall)
+    }
+}
+
+@Composable
+private fun FoodPane(onAddMeal: () -> Unit = {}) {
+    val state = LocalAppState.current
+    Column {
+        // Stacked macros ring sits directly on the page, no plate.
+        Box(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(200.dp), contentAlignment = Alignment.Center) {
+                // Clamp each macro's fill to its third of the ring BEFORE the
+                // 0.33 scale, so a macro that exceeds its target can't make its
+                // segment overflow and wrap past the next one (total ≤ ~0.99).
+                val pLen = (state.protein.toFloat() / state.proteinTarget).coerceIn(0f, 1f) * 0.33f
+                val fLen = (state.fat.toFloat() / state.fatTarget).coerceIn(0f, 1f) * 0.33f
+                val cLen = (state.carb.toFloat() / state.carbTarget).coerceIn(0f, 1f) * 0.33f
+                StackedRing(
+                    segments = listOf(
+                        LetifyColors.Protein to pLen,
+                        LetifyColors.Fat to fLen,
+                        LetifyColors.Carb to cLen,
+                    ),
+                    size = 200.dp,
+                    strokeWidth = 14.dp,
+                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(state.kcal.toString(), color = Letify.colors.text, style = Letify.typography.displayLarge)
+                    Text("из ${state.kcalTarget} ккал", color = Letify.colors.muted, style = Letify.typography.bodySmall)
+                }
+            }
+        }
+        Box(Modifier.height(14.dp))
+        Row(
+            Modifier.fillMaxWidth().screenHPad(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            MacroRow("Белки", state.protein, state.proteinTarget, "г", LetifyColors.Protein)
+            MacroRow("Жиры", state.fat, state.fatTarget, "г", LetifyColors.Fat)
+            MacroRow("Углеводы", state.carb, state.carbTarget, "г", LetifyColors.Carb)
+        }
+        SectionTitle("Сегодня")
+        WCard(modifier = Modifier.screenHPad(), contentPadding = PaddingValues(8.dp)) {
+            if (state.meals.isEmpty()) {
+                EmptyHint("Пока нет приёмов пищи — добавь первый через «+» вверху")
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    state.meals.forEach { meal ->
+                        MealRow(meal.title, meal.icon, meal.color, meal.kcal, meal.description ?: "", onAdd = onAddMeal)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Friendly centred placeholder used when a list section has no rows yet. */
+@Composable
+private fun EmptyHint(text: String) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 18.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text,
+            color = Letify.colors.muted,
+            style = Letify.typography.bodySmall,
+        )
+    }
+}
+
+@Composable
+private fun MacroRow(label: String, value: Int, target: Int, unit: String, color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier.size(10.dp).background(color, RoundedCornerShape(999.dp))
+        )
+        Box(Modifier.width(8.dp))
+        Column {
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(value.toString(), color = Letify.colors.text, style = Letify.typography.titleMedium)
+                Text(" / $target $unit", color = Letify.colors.muted, style = Letify.typography.bodySmall)
+            }
+            Text(label, color = Letify.colors.muted, style = Letify.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+private fun MealRow(title: String, icon: String, color: Color, kcal: Int?, description: String, onAdd: () -> Unit = {}) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(40.dp).background(color.copy(alpha = 0.16f), RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            SolarIcon(name = icon, tint = color, size = 22.dp)
+        }
+        Box(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = Letify.colors.text, style = Letify.typography.titleSmall)
+            Text(
+                if (kcal != null) "$description · $kcal ккал" else description,
+                color = Letify.colors.muted, style = Letify.typography.bodySmall,
+            )
+        }
+        NoFeedbackButton(onClick = onAdd, modifier = Modifier.size(28.dp)) {
+            SolarIcon(name = "add-circle-bold-duotone", tint = Letify.colors.accent, size = 22.dp)
+        }
+    }
+}
