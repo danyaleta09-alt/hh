@@ -42,7 +42,11 @@ import kotlinx.coroutines.delay
 import java.time.LocalTime
 
 @Composable
-fun HomeScreen(@Suppress("UNUSED_PARAMETER") onAddWeight: () -> Unit = {}) {
+fun HomeScreen(
+    @Suppress("UNUSED_PARAMETER") onAddWeight: () -> Unit = {},
+    @Suppress("UNUSED_PARAMETER") onAddMeal: () -> Unit = {},
+    @Suppress("UNUSED_PARAMETER") onAddSleep: () -> Unit = {},
+) {
     val state = LocalAppState.current
 
     // Tick once a minute so "Идёт сейчас" / "Через 1ч 35м" stays current
