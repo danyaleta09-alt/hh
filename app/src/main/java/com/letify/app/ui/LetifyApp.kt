@@ -60,6 +60,7 @@ import com.letify.app.ui.screens.NutritionScreen
 import com.letify.app.ui.screens.PlanScreen
 import com.letify.app.ui.screens.ProfileScreen
 import com.letify.app.ui.screens.ProgressGoalsScreen
+import com.letify.app.ui.screens.WaterHistoryScreen
 import com.letify.app.ui.state.LocalAppState
 import com.letify.app.ui.state.Tab
 import com.letify.app.ui.state.TransitionStyle
@@ -94,6 +95,7 @@ sealed interface AddOverlay {
     data object Other : AddOverlay
     data object Logs : AddOverlay
     data object ProgressGoals : AddOverlay
+    data object WaterHistory : AddOverlay
 }
 
 /**
@@ -266,6 +268,7 @@ fun LetifyApp() {
                             )
                             Tab.Nutrition -> NutritionScreen(
                                 onAddMeal = { push(AddOverlay.Nutrition) },
+                                onWaterHistory = { push(AddOverlay.WaterHistory) },
                             )
                             Tab.Plan -> PlanScreen(
                                 onAddHabit = { push(AddOverlay.Habit()) },
@@ -456,6 +459,7 @@ private fun OverlayContent(
             onBindings = onPushBindings,
         )
         AddOverlay.Logs -> LogsScreen(onBack = animatedBack)
+        AddOverlay.WaterHistory -> WaterHistoryScreen(onBack = animatedBack)
         AddOverlay.ProgressGoals -> ProgressGoalsScreen(
             onBack = animatedBack,
             onAddWeight = onPushWeight,

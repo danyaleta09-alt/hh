@@ -7,6 +7,7 @@ import com.letify.app.ui.state.Habit
 import com.letify.app.ui.state.SleepEntry
 import com.letify.app.ui.state.Subtask
 import com.letify.app.ui.state.TaskItem
+import com.letify.app.ui.state.WaterEntry
 import com.letify.app.ui.state.WeightEntry
 
 /**
@@ -131,6 +132,26 @@ class LetifyDataStore(context: Context) {
     fun saveWeightLog(entries: List<WeightEntry>) {
         val raw = entries.joinToString(RECORD_SEP) { "${it.dateKey}$FIELD_SEP${it.kg}" }
         prefs.edit().putString(KEY_WEIGHT_LOG, raw).apply()
+    }
+
+    // ── Water history (all days) ──────────────────────────────────────
+    // Each entry: dateKey|time|ml|label|icon, records separated by ";".
+    fun loadWaterHistory(): List<WaterEntry> {
+        val raw = prefs.getString(KEY_WATER_HISTORY, null) ?: return emptyList()
+        return raw.split(RECORD_SEP).mapNotNull { token ->
+            if (token.isBlank()) return@mapNotNull null
+            val p = token.split(FIELD_SEP)
+            if (p.size < 5) return@mapNotNull null
+            val ml = p[2].toIntOrNull() ?: return@mapNotNull null
+            WaterEntry(ml = ml, time = p[1], label = p[3], icon = p[4], dateKey = p[0])
+        }
+    }
+
+    fun saveWaterHistory(entries: List<WaterEntry>) {
+        val raw = entries.joinToString(RECORD_SEP) {
+            "${it.dateKey}$FIELD_SEP${it.time}$FIELD_SEP${it.ml}$FIELD_SEP${it.label}$FIELD_SEP${it.icon}"
+        }
+        prefs.edit().putString(KEY_WATER_HISTORY, raw).apply()
     }
 
     // ── Sleep log ─────────────────────────────────────────────────────
@@ -322,6 +343,7 @@ class LetifyDataStore(context: Context) {
         const val KEY_AGE = "user_age"
         const val KEY_GENDER = "user_gender"
         const val KEY_WATER_TARGET = "water_target"
+        const val KEY_WATER_HISTORY = "water_history_v1"
         const val KEY_KCAL_TARGET = "kcal_target"
         const val KEY_DEFAULT_TAB = "default_tab"
     }

@@ -92,7 +92,7 @@ fun scheduleTextFor(days: Set<Int>): String {
 
 // ── Other entities ────────────────────────────────────────────────────────
 
-data class WaterEntry(val ml: Int, val time: String, val label: String, val icon: String)
+data class WaterEntry(val ml: Int, val time: String, val label: String, val icon: String, val dateKey: String = "")
 
 data class Meal(val name: String, val title: String, val icon: String, val color: Color, val kcal: Int?, val description: String?)
 
@@ -374,19 +374,35 @@ class AppState(
     // navbar already uses to drop the blur during a tab-switch slide.
     var contentScrolling by mutableStateOf(false)
 
-    // Water
-    var waterMl by mutableStateOf(1750)
     // Daily water goal (мл) — persisted so it survives a relaunch. Previously a
     // plain in-memory state, which is why a changed goal reset on restart.
     private val _waterTarget = mutableStateOf(dataStore?.loadWaterTarget(2500) ?: 2500)
     var waterTarget: Int
         get() = _waterTarget.value
         set(v) { _waterTarget.value = v; dataStore?.saveWaterTarget(v) }
-    val waterHistory: SnapshotStateList<WaterEntry> = mutableStateListOf(
-        WaterEntry(350, "12:40", "Стакан воды", "cup-paper-bold-duotone"),
-        WaterEntry(500, "10:15", "Бутылка", "bottle-bold-duotone"),
-        WaterEntry(250, "08:02", "Утро", "waterdrop-outline"),
-    )
+
+    // Full water intake history (all days), persisted. The current-day total
+    // is derived from today's entries — it resets automatically when the date
+    // changes, so there is no separate "daily counter" to manage.
+    val waterHistory: SnapshotStateList<WaterEntry> = mutableStateListOf<WaterEntry>().apply {
+        dataStore?.loadWaterHistory()?.let { addAll(it) }
+    }
+
+    /** Total water consumed today (мл). Derived live from waterHistory — resets
+     *  automatically when the calendar day rolls over. */
+    val waterMl: Int
+        get() = waterHistory.filter { it.dateKey == Dates.todayKey() }.sumOf { it.ml }
+
+    private fun persistWaterHistory() { dataStore?.saveWaterHistory(waterHistory.toList()) }
+
+    /** Log a water intake entry for today and persist immediately. */
+    fun logWater(ml: Int, label: String, icon: String) {
+        val now = java.time.LocalTime.now()
+        val time = "%02d:%02d".format(now.hour, now.minute)
+        val entry = WaterEntry(ml, time, label, icon, Dates.todayKey())
+        waterHistory.add(0, entry)
+        persistWaterHistory()
+    }
 
     // Nutrition / calories
     var kcal by mutableStateOf(1420)
